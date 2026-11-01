@@ -1,4 +1,4 @@
-# 🌙 Night Comfort // Universal Roblox Visuals
+# 🌙 Night Vibe for All Games // Universal Roblox Visuals
 
 Универсальный скрипт для комфортной игры в Roblox ночью или в тёмной комнате.
 
@@ -12,7 +12,7 @@
 ### 🚀 Быстрый запуск (Loadstring)
 
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/ryomotik/NightVibe/main/universal_night_vibe.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/ryomotik/Night-Vibe-for-All-Games-/main/universal_night_vibe.lua"))()
 ```
 
 ### ⚡ Локальный запуск (через executor)
