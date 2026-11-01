@@ -1,46 +1,20 @@
 -- ==============================================================================
--- 🌙 NIGHT COMFORT // ANTI-GLARE & EYE-CARE (UNIVERSAL)
--- Сделано для игры в темноте: убирает выжигающий глаза пересвет,
--- НЕ делая игру глухой чернотой. Всё видно чётко и мягко.
+-- 🌙 NIGHT VIBE // UNIVERSAL ATMOSPHERE ENHANCER
+-- Powered by WindUI (by Footagesus)
+-- Created for @ryomotik
 -- ==============================================================================
 
-if _G.NightComfortCleanup then
-    pcall(_G.NightComfortCleanup)
+if _G.NightVibeCleanup then
+    pcall(_G.NightVibeCleanup)
 end
 
-local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local CoreGui = game:GetService("CoreGui")
 
-local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+-- 1. Load WindUI Library
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
--- Безопасный контейнер GUI
-local function getGuiContainer()
-    local container = nil
-    pcall(function()
-        if gethui then
-            container = gethui()
-        elseif syn and syn.protect_gui then
-            local g = Instance.new("Folder")
-            syn.protect_gui(g)
-            g.Parent = CoreGui
-            container = g
-        elseif CoreGui then
-            container = CoreGui
-        end
-    end)
-    if not container then
-        container = LocalPlayer:WaitForChild("PlayerGui", 5) or LocalPlayer:FindFirstChildOfClass("PlayerGui")
-    end
-    return container
-end
-
--- ==============================================================================
--- БЭКАП ОРИГИНАЛЬНОГО ОСВЕЩЕНИЯ ИГРЫ
--- ==============================================================================
+-- 2. Backup original lighting
 local originalLighting = {
     ClockTime = Lighting.ClockTime,
     Brightness = Lighting.Brightness,
@@ -60,13 +34,9 @@ local originalEffectsBackup = {}
 local function backupGameEffects()
     originalEffectsBackup = {}
     for _, child in ipairs(Lighting:GetChildren()) do
-        if not child:GetAttribute("NightComfortInternal") then
+        if not child:GetAttribute("NightVibeInternal") then
             if child:IsA("PostProcessEffect") then
                 originalEffectsBackup[child] = child.Enabled
-                -- Отключаем слепящие эффекты игры (SunRays и ядерный Bloom)
-                if child:IsA("SunRaysEffect") or child:IsA("BloomEffect") then
-                    child.Enabled = false
-                end
             end
         end
     end
@@ -88,47 +58,37 @@ local function restoreGameLighting()
     originalEffectsBackup = {}
 end
 
--- ==============================================================================
--- НАШИ МЯГКИЕ ПОСТ-ЭФФЕКТЫ (Защита глаз от пересвета)
--- ==============================================================================
+-- 3. Custom Night Vibe Post-Processing
 local customCC = Instance.new("ColorCorrectionEffect")
-customCC.Name = "NightComfort_CC"
-customCC:SetAttribute("NightComfortInternal", true)
+customCC.Name = "NightVibe_CC"
+customCC:SetAttribute("NightVibeInternal", true)
 
 local customBloom = Instance.new("BloomEffect")
-customBloom.Name = "NightComfort_Bloom"
-customBloom:SetAttribute("NightComfortInternal", true)
+customBloom.Name = "NightVibe_Bloom"
+customBloom:SetAttribute("NightVibeInternal", true)
 
--- ==============================================================================
--- РЕЖИМЫ: ВСЁ ВИДНО, НО НЕТ ВЫЖИГАЮЩЕГО СВЕТА
--- ==============================================================================
-local Modes = {
-    -- Режим 1: Мягкий True Tone (Оригинальное время, но белый не слепит)
-    SoftComfort = {
-        Name = "🕯️ Мягкий свет",
-        Desc = "Убирает пересветы, делает свет тёплым и мягким. 100% видимость.",
+-- 4. Presets (Всё видно, 0 черноты, мягкий свет)
+local Presets = {
+    ["🕯️ Мягкий свет (True Tone)"] = {
         ChangeTime = false,
         ClockTime = 14,
         Brightness = 1.1,
         OutdoorAmbient = Color3.fromRGB(120, 120, 128),
         Ambient = Color3.fromRGB(110, 110, 118),
         CC_Brightness = 0.01,
-        CC_Contrast = -0.04, -- Сжимает контраст: яркое становится мягче, тёмное - светлее
+        CC_Contrast = -0.04,
         CC_Saturation = 0.0,
-        CC_Tint = Color3.fromRGB(252, 244, 230), -- Тёплый фильтр синего
+        CC_Tint = Color3.fromRGB(252, 244, 230),
         BloomIntensity = 0.18,
         BloomSize = 10,
         BloomThreshold = 0.92,
     },
-    -- Режим 2: Светлая уютная ночь (Вайб ночи, но тени подсвечены, 0 черноты)
-    ClearNight = {
-        Name = "🌙 Светлая ночь",
-        Desc = "Ночной вайб, но всё видно как днём. Никакой чернухи в тенях.",
+    ["🌙 Светлая ночь (Clear Night)"] = {
         ChangeTime = true,
         ClockTime = 0,
         Brightness = 1.3,
-        OutdoorAmbient = Color3.fromRGB(115, 122, 145), -- Светлый лунный эмбиент
-        Ambient = Color3.fromRGB(105, 112, 135),        -- Тени видны отчётливо
+        OutdoorAmbient = Color3.fromRGB(115, 122, 145),
+        Ambient = Color3.fromRGB(105, 112, 135),
         CC_Brightness = 0.02,
         CC_Contrast = -0.03,
         CC_Saturation = 0.05,
@@ -137,10 +97,7 @@ local Modes = {
         BloomSize = 12,
         BloomThreshold = 0.88,
     },
-    -- Режим 3: Тёплые сумерки (Идеальный баланс для тёмной комнаты)
-    CozyDusk = {
-        Name = "🌆 Сумерки",
-        Desc = "Приятные расслабляющие сумерки. Мягкие тени и глубокий уют.",
+    ["🌆 Тёплые сумерки (Cozy Dusk)"] = {
         ChangeTime = true,
         ClockTime = 17.8,
         Brightness = 1.2,
@@ -153,264 +110,316 @@ local Modes = {
         BloomIntensity = 0.25,
         BloomSize = 14,
         BloomThreshold = 0.86,
+    },
+    ["🌑 Минимал (Чистая ночь)"] = {
+        ChangeTime = true,
+        ClockTime = 0,
+        Brightness = 1.15,
+        OutdoorAmbient = Color3.fromRGB(100, 105, 120),
+        Ambient = Color3.fromRGB(90, 95, 110),
+        CC_Brightness = 0.0,
+        CC_Contrast = -0.02,
+        CC_Saturation = -0.02,
+        CC_Tint = Color3.fromRGB(245, 246, 252),
+        BloomIntensity = 0.15,
+        BloomSize = 8,
+        BloomThreshold = 0.94,
     }
 }
 
-local CurrentState = {
+local State = {
     Enabled = true,
-    ModeKey = "SoftComfort",
+    Preset = "🕯️ Мягкий свет (True Tone)",
+    BrightnessMod = 1.0,
     Warmth = 0.6,
+    AntiGlare = true,
+    RemoveSunRays = true,
+    SoftenBloom = true,
+    RemoveFog = true,
+    AntiRevert = true,
 }
 
-local function applyComfortSettings()
-    if not CurrentState.Enabled then return end
-    local m = Modes[CurrentState.ModeKey] or Modes.SoftComfort
+local function applyAtmosphere()
+    if not State.Enabled then return end
+    local p = Presets[State.Preset] or Presets["🕯️ Мягкий свет (True Tone)"]
 
-    if m.ChangeTime then
-        Lighting.ClockTime = m.ClockTime
+    if p.ChangeTime then
+        Lighting.ClockTime = p.ClockTime
     end
-    Lighting.Brightness = m.Brightness
-    Lighting.OutdoorAmbient = m.OutdoorAmbient
-    Lighting.Ambient = m.Ambient
+    Lighting.Brightness = p.Brightness * State.BrightnessMod
+    Lighting.OutdoorAmbient = p.OutdoorAmbient
+    Lighting.Ambient = p.Ambient
     Lighting.ExposureCompensation = 0.0
-    Lighting.FogEnd = 100000
 
+    if State.RemoveFog then
+        Lighting.FogEnd = 100000
+    end
+
+    -- Настройка ColorCorrection
     customCC.Parent = Lighting
-    customCC.Brightness = m.CC_Brightness
-    customCC.Contrast = m.CC_Contrast
-    customCC.Saturation = m.CC_Saturation
+    customCC.Brightness = p.CC_Brightness
+    customCC.Contrast = p.CC_Contrast
+    customCC.Saturation = p.CC_Saturation
 
-    local baseTint = m.CC_Tint
-    local warmShift = Color3.fromRGB(255, 232, 205)
-    local w = CurrentState.Warmth
+    -- Смешивание тёплого оттенка (Eye-Care True Tone)
+    local baseTint = p.CC_Tint
+    local warmShift = Color3.fromRGB(255, 230, 200)
+    local w = math.clamp(State.Warmth, 0, 1)
     customCC.TintColor = Color3.new(
         baseTint.R + (warmShift.R - baseTint.R) * w,
         baseTint.G + (warmShift.G - baseTint.G) * w,
         baseTint.B + (warmShift.B - baseTint.B) * w
     )
 
-    customBloom.Parent = Lighting
-    customBloom.Intensity = m.BloomIntensity
-    customBloom.Size = m.BloomSize
-    customBloom.Threshold = m.BloomThreshold
+    -- Настройка мягкого Bloom
+    if State.SoftenBloom then
+        customBloom.Parent = Lighting
+        customBloom.Intensity = p.BloomIntensity
+        customBloom.Size = p.BloomSize
+        customBloom.Threshold = p.BloomThreshold
+    else
+        customBloom.Parent = nil
+    end
+
+    -- Отключение слепящих эффектов игры
+    for _, child in ipairs(Lighting:GetChildren()) do
+        if not child:GetAttribute("NightVibeInternal") then
+            if State.RemoveSunRays and child:IsA("SunRaysEffect") then
+                child.Enabled = false
+            end
+            if State.SoftenBloom and child:IsA("BloomEffect") then
+                child.Enabled = false
+            end
+        end
+    end
 end
 
-local function enableComfort()
+local function enableNightVibe()
     backupGameEffects()
-    CurrentState.Enabled = true
-    applyComfortSettings()
+    State.Enabled = true
+    applyAtmosphere()
 end
 
-local function disableComfort()
-    CurrentState.Enabled = false
+local function disableNightVibe()
+    State.Enabled = false
     customCC.Parent = nil
     customBloom.Parent = nil
     restoreGameLighting()
 end
 
+-- Страж Anti-Revert
 local guardTimer = 0
-local guardConnection = RunService.Heartbeat:Connect(function(dt)
-    if not CurrentState.Enabled then return end
+local guardConn = RunService.Heartbeat:Connect(function(dt)
+    if not State.Enabled or not State.AntiRevert then return end
     guardTimer = guardTimer + dt
     if guardTimer >= 0.5 then
         guardTimer = 0
-        local m = Modes[CurrentState.ModeKey] or Modes.SoftComfort
-        if m.ChangeTime and math.abs(Lighting.ClockTime - m.ClockTime) > 0.1 then
-            Lighting.ClockTime = m.ClockTime
+        local p = Presets[State.Preset] or Presets["🕯️ Мягкий свет (True Tone)"]
+        if p.ChangeTime and math.abs(Lighting.ClockTime - p.ClockTime) > 0.1 then
+            Lighting.ClockTime = p.ClockTime
         end
         if Lighting.Brightness > 1.6 or customCC.Parent ~= Lighting then
-            applyComfortSettings()
+            applyAtmosphere()
         end
     end
 end)
 
-enableComfort()
+enableNightVibe()
 
 -- ==============================================================================
--- МИНИМАЛИСТИЧНЫЙ КОМПАКТНЫЙ WIDGET
+-- WINDUI WINDOW CREATION
 -- ==============================================================================
-local guiContainer = getGuiContainer()
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "NightComfort_PillUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local Window = WindUI:CreateWindow({
+    Title = "Night Vibe",
+    Icon = "moon",
+    Author = "by ryomotik",
+    Folder = "NightVibeConfig",
+    Size = UDim2.fromOffset(560, 440),
+    Transparent = true,
+    Theme = "Dark",
+    SideBarWidth = 180,
+    HasOutline = true,
+})
 
-pcall(function()
-    ScreenGui.Parent = guiContainer
-end)
+-- Вкладка 1: Главное освещение
+local MainTab = Window:Tab({
+    Title = "Освещение",
+    Icon = "moon",
+})
 
-local Pill = Instance.new("Frame")
-Pill.Name = "Pill"
-Pill.Size = UDim2.new(0, 310, 0, 38)
-Pill.Position = UDim2.new(0.5, -155, 0, 18)
-Pill.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
-Pill.BackgroundTransparency = 0.12
-Pill.BorderSizePixel = 0
-Pill.Active = true
-Pill.Parent = ScreenGui
+local MasterSection = MainTab:Section({
+    Title = "Основное управление",
+    Opened = true,
+})
 
-local PillCorner = Instance.new("UICorner")
-PillCorner.CornerRadius = UDim.new(1, 0)
-PillCorner.Parent = Pill
+MasterSection:Toggle({
+    Title = "Ночной режим (Night Vibe)",
+    Desc = "Включает или выключает мягкий комфортный свет",
+    Value = State.Enabled,
+    Callback = function(val)
+        if val then
+            enableNightVibe()
+        else
+            disableNightVibe()
+        end
+    end,
+})
 
-local PillStroke = Instance.new("UIStroke")
-PillStroke.Thickness = 1.2
-PillStroke.Color = Color3.fromRGB(60, 68, 88)
-PillStroke.Transparency = 0.3
-PillStroke.Parent = Pill
+local PresetsSection = MainTab:Section({
+    Title = "Выбор атмосферы",
+    Opened = true,
+})
 
--- Перетаскивание
-local dragging = false
-local dragStart, startPos
-Pill.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = Pill.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
+PresetsSection:Dropdown({
+    Title = "Пресет освещения",
+    Desc = "Выберите подходящий стиль под вашу игру",
+    Values = {
+        "🕯️ Мягкий свет (True Tone)",
+        "🌙 Светлая ночь (Clear Night)",
+        "🌆 Тёплые сумерки (Cozy Dusk)",
+        "🌑 Минимал (Чистая ночь)"
+    },
+    Default = State.Preset,
+    Callback = function(selected)
+        State.Preset = selected
+        if State.Enabled then
+            applyAtmosphere()
+        end
+    end,
+})
+
+PresetsSection:Slider({
+    Title = "Яркость окружения",
+    Desc = "Регулировка общей видимости (по умолчанию 100%)",
+    Min = 50,
+    Max = 180,
+    Default = 100,
+    Rounding = 0,
+    Callback = function(val)
+        State.BrightnessMod = val / 100
+        if State.Enabled then
+            applyAtmosphere()
+        end
+    end,
+})
+
+-- Вкладка 2: Защита глаз (Eye-Care)
+local EyeTab = Window:Tab({
+    Title = "Защита глаз",
+    Icon = "eye",
+})
+
+local EyeSection = EyeTab:Section({
+    Title = "Фильтр синего света (True Tone)",
+    Opened = true,
+})
+
+EyeSection:Slider({
+    Title = "Теплота фильтра",
+    Desc = "Снижает раздражающий синий спектр в темноте",
+    Min = 0,
+    Max = 100,
+    Default = 60,
+    Rounding = 0,
+    Callback = function(val)
+        State.Warmth = val / 100
+        if State.Enabled then
+            applyAtmosphere()
+        end
+    end,
+})
+
+local AntiGlareSection = EyeTab:Section({
+    Title = "Антиблик и защита от пересвета",
+    Opened = true,
+})
+
+AntiGlareSection:Toggle({
+    Title = "Убрать лучи солнца (SunRays)",
+    Desc = "Отключает ослепляющие солнечные лучи в камеру",
+    Value = State.RemoveSunRays,
+    Callback = function(val)
+        State.RemoveSunRays = val
+        if State.Enabled then
+            applyAtmosphere()
+        end
+    end,
+})
+
+AntiGlareSection:Toggle({
+    Title = "Смягчить ядовитый Bloom",
+    Desc = "Убирает белую пелену и агрессивное свечение текстур",
+    Value = State.SoftenBloom,
+    Callback = function(val)
+        State.SoftenBloom = val
+        if State.Enabled then
+            applyAtmosphere()
+        end
+    end,
+})
+
+AntiGlareSection:Toggle({
+    Title = "Убрать слепящий туман",
+    Desc = "Очищает горизонт от густого белого тумана",
+    Value = State.RemoveFog,
+    Callback = function(val)
+        State.RemoveFog = val
+        if State.Enabled then
+            applyAtmosphere()
+        end
+    end,
+})
+
+-- Вкладка 3: Настройки
+local SettingsTab = Window:Tab({
+    Title = "Настройки",
+    Icon = "settings",
+})
+
+local SystemSection = SettingsTab:Section({
+    Title = "Система и защита",
+    Opened = true,
+})
+
+SystemSection:Toggle({
+    Title = "Анти-сброс (Anti-Revert)",
+    Desc = "Блокирует попытки скриптов игры включить день",
+    Value = State.AntiRevert,
+    Callback = function(val)
+        State.AntiRevert = val
+    end,
+})
+
+SystemSection:Button({
+    Title = "Восстановить стандартную графику",
+    Desc = "Сбрасывает все визуальные настройки к исходным",
+    Callback = function()
+        disableNightVibe()
+        WindUI:Notify({
+            Title = "Night Vibe",
+            Content = "Оригинальное освещение игры восстановлено!",
+            Duration = 3,
+            Icon = "check",
+        })
+    end,
+})
+
+-- Очистка при закрытии
+_G.NightVibeCleanup = function()
+    if guardConn then
+        guardConn:Disconnect()
+        guardConn = nil
     end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        Pill.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
--- Вкл/Выкл
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Size = UDim2.new(0, 30, 0, 30)
-ToggleBtn.Position = UDim2.new(0, 4, 0.5, -15)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 125, 75)
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.Text = "🌙"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleBtn.TextSize = 14
-ToggleBtn.BorderSizePixel = 0
-ToggleBtn.AutoButtonColor = false
-ToggleBtn.Parent = Pill
-
-local ToggleCorner = Instance.new("UICorner")
-ToggleCorner.CornerRadius = UDim.new(1, 0)
-ToggleCorner.Parent = ToggleBtn
-
--- Переключение режимов
-local ModeBtn = Instance.new("TextButton")
-ModeBtn.Size = UDim2.new(0, 185, 0, 30)
-ModeBtn.Position = UDim2.new(0, 38, 0.5, -15)
-ModeBtn.BackgroundColor3 = Color3.fromRGB(26, 30, 40)
-ModeBtn.Font = Enum.Font.GothamMedium
-ModeBtn.Text = Modes[CurrentState.ModeKey].Name
-ModeBtn.TextColor3 = Color3.fromRGB(220, 230, 250)
-ModeBtn.TextSize = 12
-ModeBtn.BorderSizePixel = 0
-ModeBtn.AutoButtonColor = false
-ModeBtn.Parent = Pill
-
-local ModeCorner = Instance.new("UICorner")
-ModeCorner.CornerRadius = UDim.new(0, 8)
-ModeCorner.Parent = ModeBtn
-
--- Переключение теплоты
-local WarmBtn = Instance.new("TextButton")
-WarmBtn.Size = UDim2.new(0, 50, 0, 30)
-WarmBtn.Position = UDim2.new(0, 227, 0.5, -15)
-WarmBtn.BackgroundColor3 = Color3.fromRGB(36, 32, 24)
-WarmBtn.Font = Enum.Font.GothamBold
-WarmBtn.Text = "ТЁПЛ"
-WarmBtn.TextColor3 = Color3.fromRGB(255, 210, 130)
-WarmBtn.TextSize = 10
-WarmBtn.BorderSizePixel = 0
-WarmBtn.AutoButtonColor = false
-WarmBtn.Parent = Pill
-
-local WarmCorner = Instance.new("UICorner")
-WarmCorner.CornerRadius = UDim.new(0, 8)
-WarmCorner.Parent = WarmBtn
-
--- Закрыть
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 24, 0, 24)
-CloseBtn.Position = UDim2.new(1, -28, 0.5, -12)
-CloseBtn.BackgroundTransparency = 1
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.Text = "✕"
-CloseBtn.TextColor3 = Color3.fromRGB(140, 150, 175)
-CloseBtn.TextSize = 12
-CloseBtn.Parent = Pill
-
-local modeOrder = {"SoftComfort", "ClearNight", "CozyDusk"}
-local currentModeIndex = 1
-
-ModeBtn.MouseButton1Click:Connect(function()
-    currentModeIndex = currentModeIndex + 1
-    if currentModeIndex > #modeOrder then
-        currentModeIndex = 1
-    end
-    CurrentState.ModeKey = modeOrder[currentModeIndex]
-    ModeBtn.Text = Modes[CurrentState.ModeKey].Name
-    if CurrentState.Enabled then
-        applyComfortSettings()
-    end
-end)
-
-local warmLevels = {0.0, 0.5, 1.0}
-local warmLabels = {"ХОЛ", "ТЕП", "МАКС"}
-local warmIdx = 2
-
-WarmBtn.MouseButton1Click:Connect(function()
-    warmIdx = warmIdx + 1
-    if warmIdx > #warmLevels then
-        warmIdx = 1
-    end
-    CurrentState.Warmth = warmLevels[warmIdx]
-    WarmBtn.Text = warmLabels[warmIdx]
-    if warmIdx == 1 then
-        WarmBtn.TextColor3 = Color3.fromRGB(160, 190, 240)
-        WarmBtn.BackgroundColor3 = Color3.fromRGB(25, 32, 45)
-    else
-        WarmBtn.TextColor3 = Color3.fromRGB(255, 210, 130)
-        WarmBtn.BackgroundColor3 = Color3.fromRGB(42, 34, 22)
-    end
-    if CurrentState.Enabled then
-        applyComfortSettings()
-    end
-end)
-
-ToggleBtn.MouseButton1Click:Connect(function()
-    CurrentState.Enabled = not CurrentState.Enabled
-    if CurrentState.Enabled then
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 125, 75)
-        ToggleBtn.Text = "🌙"
-        ModeBtn.TextColor3 = Color3.fromRGB(220, 230, 250)
-        enableComfort()
-    else
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(90, 40, 40)
-        ToggleBtn.Text = "✕"
-        ModeBtn.TextColor3 = Color3.fromRGB(130, 135, 150)
-        disableComfort()
-    end
-end)
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightShift then
-        Pill.Visible = not Pill.Visible
-    end
-end)
-
-local function cleanup()
-    if guardConnection then
-        guardConnection:Disconnect()
-        guardConnection = nil
-    end
-    disableComfort()
-    ScreenGui:Destroy()
-    _G.NightComfortCleanup = nil
+    disableNightVibe()
+    pcall(function()
+        Window:Destroy()
+    end)
+    _G.NightVibeCleanup = nil
 end
 
-CloseBtn.MouseButton1Click:Connect(cleanup)
-_G.NightComfortCleanup = cleanup
+WindUI:Notify({
+    Title = "Night Vibe",
+    Content = "Загружен интерфейс WindUI! Приятной игры.",
+    Duration = 4,
+    Icon = "moon",
+})
