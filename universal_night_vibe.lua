@@ -58,7 +58,7 @@ local function restoreGameLighting()
     originalEffectsBackup = {}
 end
 
--- 3. Custom Night Vibe Post-Processing
+-- 3. Custom Night Vibe Post-Processing (Защита от пересветов, 0% слепоты)
 local customCC = Instance.new("ColorCorrectionEffect")
 customCC.Name = "NightVibe_CC"
 customCC:SetAttribute("NightVibeInternal", true)
@@ -67,7 +67,7 @@ local customBloom = Instance.new("BloomEffect")
 customBloom.Name = "NightVibe_Bloom"
 customBloom:SetAttribute("NightVibeInternal", true)
 
--- 4. Presets (Всё видно, 0 черноты, мягкий свет)
+-- 4. Presets (Всё видно, тени светлые, мягкий свет)
 local Presets = {
     ["🕯️ Мягкий свет (True Tone)"] = {
         ChangeTime = false,
@@ -155,13 +155,13 @@ local function applyAtmosphere()
         Lighting.FogEnd = 100000
     end
 
-    -- Настройка ColorCorrection
+    -- Настройка ColorCorrection (сжатие контраста, белые текстуры не слепят)
     customCC.Parent = Lighting
     customCC.Brightness = p.CC_Brightness
     customCC.Contrast = p.CC_Contrast
     customCC.Saturation = p.CC_Saturation
 
-    -- Смешивание тёплого оттенка (Eye-Care True Tone)
+    -- Смешивание тёплого оттенка (True Tone)
     local baseTint = p.CC_Tint
     local warmShift = Color3.fromRGB(255, 230, 200)
     local w = math.clamp(State.Warmth, 0, 1)
@@ -207,7 +207,7 @@ local function disableNightVibe()
     restoreGameLighting()
 end
 
--- Страж Anti-Revert
+-- Защитный цикл Anti-Revert
 local guardTimer = 0
 local guardConn = RunService.Heartbeat:Connect(function(dt)
     if not State.Enabled or not State.AntiRevert then return end
@@ -227,7 +227,7 @@ end)
 enableNightVibe()
 
 -- ==============================================================================
--- WINDUI WINDOW CREATION
+-- 🪟 WINDUI CREATION
 -- ==============================================================================
 local Window = WindUI:CreateWindow({
     Title = "Night Vibe",
@@ -239,9 +239,10 @@ local Window = WindUI:CreateWindow({
     Theme = "Dark",
     SideBarWidth = 180,
     HasOutline = true,
+    ToggleKey = Enum.KeyCode.RightShift,
 })
 
--- Вкладка 1: Главное освещение
+-- ----------------- ВКЛАДКА 1: ОСВЕЩЕНИЕ -----------------
 local MainTab = Window:Tab({
     Title = "Освещение",
     Icon = "moon",
@@ -303,7 +304,7 @@ PresetsSection:Slider({
     end,
 })
 
--- Вкладка 2: Защита глаз (Eye-Care)
+-- ----------------- ВКЛАДКА 2: ЗАЩИТА ГЛАЗ -----------------
 local EyeTab = Window:Tab({
     Title = "Защита глаз",
     Icon = "eye",
@@ -370,18 +371,46 @@ AntiGlareSection:Toggle({
     end,
 })
 
--- Вкладка 3: Настройки
+-- ----------------- ВКЛАДКА 3: НАСТРОЙКИ -----------------
 local SettingsTab = Window:Tab({
     Title = "Настройки",
     Icon = "settings",
 })
 
 local SystemSection = SettingsTab:Section({
-    Title = "Система и защита",
+    Title = "Интерфейс и горячие клавиши",
     Opened = true,
 })
 
-SystemSection:Toggle({
+SystemSection:Keybind({
+    Title = "Клавиша открытия меню",
+    Desc = "Нажмите клавишу, чтобы изменить горячую клавишу (по умолчанию RightShift)",
+    Value = "RightShift",
+    Callback = function(key)
+        pcall(function()
+            Window:SetToggleKey(Enum.KeyCode[key] or Enum.KeyCode.RightShift)
+        end)
+    end,
+})
+
+SystemSection:Dropdown({
+    Title = "Тема оформления WindUI",
+    Desc = "Цветовая палитра меню",
+    Values = { "Dark", "Midnight", "Purple", "Rose", "Sky" },
+    Default = "Dark",
+    Callback = function(themeName)
+        pcall(function()
+            WindUI:SetTheme(themeName)
+        end)
+    end,
+})
+
+local ProtectionSection = SettingsTab:Section({
+    Title = "Система и сброс",
+    Opened = true,
+})
+
+ProtectionSection:Toggle({
     Title = "Анти-сброс (Anti-Revert)",
     Desc = "Блокирует попытки скриптов игры включить день",
     Value = State.AntiRevert,
@@ -390,7 +419,23 @@ SystemSection:Toggle({
     end,
 })
 
-SystemSection:Button({
+ProtectionSection:Button({
+    Title = "Скопировать Loadstring",
+    Desc = "Копирует команду запуска скрипта в буфер обмена",
+    Callback = function()
+        if setclipboard then
+            setclipboard('loadstring(game:HttpGet("https://raw.githubusercontent.com/ryomotik/Night-Vibe-for-All-Games-/main/universal_night_vibe.lua"))()')
+            WindUI:Notify({
+                Title = "Успешно",
+                Content = "Loadstring скопирован в буфер!",
+                Duration = 3,
+                Icon = "check",
+            })
+        end
+    end,
+})
+
+ProtectionSection:Button({
     Title = "Восстановить стандартную графику",
     Desc = "Сбрасывает все визуальные настройки к исходным",
     Callback = function()
@@ -419,7 +464,7 @@ end
 
 WindUI:Notify({
     Title = "Night Vibe",
-    Content = "Загружен интерфейс WindUI! Приятной игры.",
+    Content = "Загружен интерфейс WindUI! [RightShift] для меню.",
     Duration = 4,
     Icon = "moon",
 })
